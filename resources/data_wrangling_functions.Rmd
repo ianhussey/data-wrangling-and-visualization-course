@@ -1,0 +1,325 @@
+---
+title: "Important functions for data wrangling"
+author: "Template: Ian Hussey; Content: [student name]"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output:
+  html_document:
+    code_folding: hide
+    highlight: haddock
+    theme: flatly
+    toc: yes
+    toc_float: yes
+---
+
+```{r, include=FALSE}
+
+# set knit options
+knitr::opts_chunk$set(message = FALSE,
+                      warning = FALSE)
+
+# disable scientific notation
+options(scipen = 999) 
+
+```
+
+# Instructions
+
+Most data wrangling tasks can be accomplished with a relatively small number of functions. I've listed the most important ones here. 
+
+Use this file to keep notes about what a given function does in your own words, the situations where you would use it, and working examples. You can make use of built-in datasets to do this (e.g., `mtcars`) or load external data sets (although its easier to break the examples if you modify the data etc.).
+
+Learning how to wrangle data efficiently involves a combination of knowing how to break the problem down into smaller components; knowing which functions are available to accomplish each component operation and how to use them; how to search documentation to learn or refresh your knowledge of how a function works; and how to discover new functions that accomplish new component operations. 
+
+Remember that you can look up the help documentation for any function by typing a question mark followed by its name in the console, e.g., `?dplyr::mutate`. The help documentation provides details of a function's parameters and defaults, its outputs, and examples of its use. Note that when you can also open the help documentation for an entire package by typing the package name, e.g., `?dplyr`. This can be very useful to discover what other functions that package has: scroll down to the bottom of any help page and click the "Index" link to see all help pages for that package.
+
+I have prepended each function below with package it comes from so that you know. For example, `summarize` is listed as `dplyr::summarize`. Usually you don't have to do this when using a function, although you can use this to resolve a common bug known as name conflicts (see [this blog post](https://www.r-bloggers.com/2010/08/namespaces-and-name-conflicts/) for discussion). 
+
+# Resources (for this session and others)
+
+- You can find cheatsheets for the dplyr, tidyr, and RMarkdown in the /resources/cheatsheets folder.
+- The Open Source textbook R for Data Science (aka, [Wickham's R4DS](https://r4ds.hadley.nz/)) is invaluable. Hadley Wickham is the main developer of the "tidyverse" set of packages, including dplyr, tidyr, ggplot2, stringr, lubridate, and others. See its [section on data transformation](https://r4ds.hadley.nz/data-transform). 
+  - The entire second edition of the book is available at [https://r4ds.hadley.nz/](https://r4ds.hadley.nz/).
+  - The first edition is also available. It does some things better in my opinion, e.g., it has a better explanation of the pipe (`%>%` or `|>`). See [https://r4ds.had.co.nz/pipes.html](https://r4ds.had.co.nz/pipes.html). 
+  - The first edition also talks about RMarkdown, whereas the second edition has moved to a different technology called Quarto (which we won't cover, although they're similar). See [https://r4ds.had.co.nz/r-markdown.html](https://r4ds.had.co.nz/r-markdown.html).
+- For those of you who prefer to learn in an interactive environment, I now suggest this web app over Swirl as it is more user-friendly: [https://allisonhorst.shinyapps.io/dplyr-learnr/#section-welcome](https://allisonhorst.shinyapps.io/dplyr-learnr/#section-welcome).
+- For those of you who prefer some video content - although seeing other people code can never replace practicing coding yourself! - I can also recommend De Bruine et al.'s Open Source textbook and videos [Data Skills for Reproducible Research](https://psyteachr.github.io/reprores-v3/). E.g., see their page with links to videos for [dplyr](https://psyteachr.github.io/reprores-v3/dplyr.html) and [tidyr](https://psyteachr.github.io/reprores-v3/tidyr.html). 
+
+# Dependencies
+
+The packages these functions come from, which must be loaded to use them.
+
+```{r}
+
+library(readr)
+library(dplyr)
+library(tidyr)
+library(knitr)
+library(kableExtra)
+library(janitor)
+
+```
+
+# Basics
+
+## read_csv 
+
+vs. `read.csv()`
+
+*Always, always, always* use relative paths rather than absolute paths.
+
+- Absolute path (bad): "~/Ian/Desktop/my_project/data/data_raw.csv"
+- Relative path (good): "../data/data_raw.csv"
+
+When using relative paths: "../" means up one directory level, whereas "directory_name/" goes down one directory level.
+
+Relative paths will work on other machines, where absolute paths will break. 
+
+Relative paths only work in .Rmd files and not .R files. Even without RMarkdown's other benefits, this makes them worth using.
+
+Useful arguments:
+
+- `skip` can be used to skip the first N rows while reading the data
+
+```{r}
+
+
+
+# readr::read_csv()
+
+```
+
+## dir.create
+
+```{r}
+
+# dir.create()
+
+```
+
+## colnames & dput
+
+```{r}
+
+# colnames()
+
+# dput(colnames())
+
+```
+
+# Wrangling
+
+## the pipe: `%>%` or `|>`
+
+```{r}
+
+# %>%
+
+# |>
+
+```
+
+## round_half_up
+
+```{r}
+
+# janitor::round_half_up()
+
+```
+
+## clean_names
+
+```{r}
+
+# janitor::clean_names()
+
+```
+
+## filter
+
+```{r}
+
+# dplyr::filter()
+
+```
+
+## slice
+
+Slice is for retaining or dropping rows from a df.
+
+We might use it just after reading in files if there are junk rows at the header.
+
+```{r}
+
+# dplyr::slice()
+
+mtcars # this should have 32 rows
+slice(mtcars, 2:n()) # this should have 31 rows
+
+```
+
+## select
+
+```{r}
+
+# dplyr::select()
+
+```
+
+## rename
+
+```{r}
+
+# dplyr::rename()
+
+```
+
+## mutate
+
+```{r}
+
+# dplyr::mutate()
+
+```
+
+## case_when
+
+```{r}
+
+# dplyr::case_when() # instead of ifelse()
+
+```
+
+## summarize
+
+```{r}
+
+# dplyr::summarize() 
+
+```
+
+## count
+
+```{r}
+
+# dplyr::count()
+
+```
+
+## distinct
+
+```{r}
+
+# dplyr::distinct()
+
+```
+
+## group_by
+
+```{r}
+
+# dplyr::group_by() # or ".by =" 
+
+```
+
+## rowwise
+
+```{r}
+
+# dplyr::rowwise()
+
+```
+
+## lead
+
+```{r}
+
+# dplyr::lead()
+
+```
+
+## lag
+
+```{r}
+
+# dplyr::lag()
+
+```
+
+## joins
+
+```{r}
+
+# dplyr::full_join()
+
+# dplyr::left_join()
+
+# dplyr::right_join()
+
+# dplyr::inner_join()
+
+# dplyr::semi_join()
+
+```
+
+## pivots
+
+```{r}
+
+# tidyr::pivot_wider()
+
+# tidyr::pivot_longer()
+
+```
+
+## drop_na
+
+```{r}
+
+# tidyr::drop_na()
+
+```
+
+## separate
+
+```{r}
+
+# tidyr::separate()
+
+```
+
+## fill
+
+```{r}
+
+# tidyr::fill()
+
+```
+
+# Printing tables
+
+```{r}
+
+# mtcars |> # example data
+#   knitr::kable() |> # print a nicer looking table
+#   kableExtra::kable_classic(full_width = FALSE) # print nicer again
+
+```
+
+# Other packages 
+
+Other packages you may need for wrangling which aren't covered here:
+
+- library(forcats). Everything to do with factors and factor levels. Useful for plotting and establishing reference levels for statistical tests.
+- library(stringr). Everything to do with strings, searching for strings, modifying strings, parsing them, etc.
+- library(lubridate). Everything to do with dates, parsing dates, converting date formats, etc. 
+
+# Session info
+
+```{r}
+
+sessionInfo()
+
+```
+
+
+

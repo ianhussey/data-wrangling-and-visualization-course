@@ -1,0 +1,289 @@
+---
+title: "Evaluations of positive and negative stimuli using the Affective Misattribution Procedure (AMP) and self-reports"
+subtitle: "Data processing"
+author: "Template: Ian Hussey; content: [Student name]"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output:
+  html_document:
+    code_folding: hide
+    highlight: haddock
+    theme: flatly
+    toc: yes
+    toc_float: yes
+---
+
+```{r, include=FALSE}
+
+knitr::opts_chunk$set(message = FALSE,
+                      warning = FALSE)
+
+```
+
+# Dependencies
+
+```{r}
+
+library(dplyr)
+library(tidyr)
+library(readr)
+library(janitor) # for clean_names()
+library(stringr)
+
+```
+
+# Get data
+
+```{r}
+
+# # demographics
+# data_demographics_raw_messy <- read_csv("../data/raw/data_demographics_raw_messy.csv", skip = 2) |>
+#   janitor::clean_names()
+
+data_demographics_raw <- read_csv("../data/raw/data_demographics_raw.csv") |>
+  janitor::clean_names()
+
+# self report measure
+data_selfreport_raw <- read_csv("../data/raw/data_selfreport_raw.csv") |>
+  janitor::clean_names()
+
+# affect attribution procedure
+data_amp_raw <- read_csv("../data/raw/data_amp_raw.csv") |>
+  janitor::clean_names()
+
+```
+
+# Demographics
+
+Clean the demographics data so that summaries of age and gender can be made in the analysis.
+
+```{r}
+
+# wrangle the age data out of the raw
+dat_age <- data_demographics_raw |>
+  # rename for clarity
+  rename(unique_id = subject, item = trialcode) |>
+  # select useful columns
+  select(unique_id, item, response) |>
+  # retain rows that we need
+  filter(item == "age") |>
+  rename(age = response) |>
+  # remove non-numbers or decimals from age
+  mutate(age = str_remove_all(age, "[^\\d.]"),  # retains only digits and decimal points
+         age = na_if(age, ""),
+         age = as.numeric(age)) |>
+  select(unique_id, age)
+  #select(-item) # alternative: negative selection
+
+# wrangle the gender data out of the raw
+dat_gender <- data_demographics_raw |>
+  # rename for clarity
+  rename(unique_id = subject, item = trialcode) |>
+  # select useful columns
+  select(unique_id, item, response) |>
+  # retain rows that we need
+  filter(item == "gender") |>
+  rename(gender = response) |>
+  # remove non-numbers or decimals from age
+  mutate(gender = str_to_lower(gender),
+         gender = str_remove_all(gender, "[\\d.]"),
+         gender = na_if(gender, ""), 
+         gender = case_when(gender == "woman" ~ "female",
+                            gender == "yes" ~ NA_character_,
+                            gender == "man" ~ "male",
+                            gender == "girl" ~ "female",
+                            gender == "dude" ~ "male",
+                            gender == "non binary" ~ "non-binary",
+                            TRUE ~ gender)) |>
+  select(unique_id, gender)
+
+```
+
+```{r}
+
+# do we have duplicate data?
+data_demographics_raw |>
+  count(subject) |>
+  arrange(desc(n))
+
+# yes - n is different for some subjects
+
+data_unique_id <- data_demographics_raw |>
+  rename(unique_id = subject) |>
+  count(unique_id) |>
+  filter(n == 2) |>
+  select(unique_id)
+  
+# multi-line typing: option-mouse drag on mac, alt-mouse drag on windows
+
+set.seed(42)
+
+data_unique_id_subset <- data_unique_id |>
+  sample_n(size = 92)
+
+write_csv(data_unique_id_subset, "data_unique_id_subset.csv")
+  
+```
+
+## Combine
+
+```{r}
+
+# dat_gender |>
+#   count(gender) |>
+#   arrange(desc(n))
+# 
+# # dangerous - dont use as it assumes row order is equivalent
+# # data_age_gender <- 
+# #   bind_cols(dat_age,
+# #             dat_gender)
+
+data_age_gender <-
+  full_join(x = dat_age,
+            y = dat_gender, 
+            by = "unique_id")
+
+set.seed(42)
+data_age_gender_subset <- data_age_gender |>
+  sample_n(size = 90)
+
+write_csv(data_age_gender_subset, "data_age_gender_subset.csv")
+
+```
+
+- in class: how to merge categories of "woman" and "female"?
+- how to convert convert responses other than defined categories (e.g., "yes") to NA?
+
+# Exclusions / data quality
+
+## AMP
+
+Create an exclusion variable `exclude_amp_performance` based on AMP performance: "exclude" if more than 10% of trials are < 100ms, or "include" if not.
+
+Create an exclusion variable `exclude_amp_completeness` based on the AMP having the right number of trials.
+
+```{r}
+
+data_amp_performance_criteria <- data_amp_raw |>
+  filter(blockcode == "test" & trialcode %in% c("prime_positive", "prime_negative")) |>
+  select(unique_id = subject, prime = trialcode, correct, latency)
+
+set.seed(42)
+
+data_amp_summary_subset <- data_amp_performance_criteria |>
+  group_by(unique_id) |>
+  summarize(mean_reaction_time_behavioral_task = janitor::round_half_up(mean(latency), 0)) |>
+  ungroup() |>
+  sample_n(size = 31)
+
+write_csv(data_amp_summary_subset, "data_amp_summary_subset.csv")
+  
+```
+
+# Self-reports
+
+Create a mean score for each participant of the three self-report items.
+
+```{r}
+
+set.seed(42)
+
+data_selfreport_trial_level <- data_selfreport_raw |>
+  select(unique_id = subject, item = trialcode, response) |> # note that you can do renames inside selects like this!
+  filter(item %in% c("like", "positive", "prefer")) |>
+  mutate(response = case_when(response == "Ctrl+'B'" ~ NA,
+                              TRUE ~ response),
+         response = as.numeric(response))
+
+data_selfreport_summary_subset <- data_selfreport_trial_level |>
+  group_by(unique_id) |>
+  summarize(mean_self_report = janitor::round_half_up(mean(response), 2)) |>
+  ungroup() |>
+  sample_n(size = 76)
+
+write_csv(data_selfreport_summary_subset, "data_selfreport_summary_subset.csv")
+
+```
+
+# Practicing joins
+
+Using the data frames below and functions from the _join family, write code to do the following joins.  
+
+create 'data_combined' by joining data_amp_summary_subset and data_age_gender_subset so that unique_ids in either data frame are retained. which join is this? implement it. 
+
+create 'data_self_reports_and_their_amp_data' by joining data_selfreport_summary_subset and data_amp_summary_subset so that all participants have self-report data, + AMP data if available. which join is this? implement it. 
+
+do the opposite: create 'data_amp_data_and_their_self_reports' by joining data_amp_summary_subset and data_selfreport_summary_subset so that all participants have AMP data, + self-report data if available. which join is this? implement it. 
+
+join 'data_combined' and data_selfreport_summary_subset only unique_ids already present in data_combined are retained. which join is this? implement it. 
+
+create 'data_missing_ids' which should list the unique_ids are missing from data_unique_id_subset but are present in at least one of data_age_gender_subset, data_amp_summary_subset, and data_selfreport_summary_subset. This will require two different joins. Which? Implement them.
+
+```{r}
+
+data_unique_id_subset <- read_csv("data_unique_id_subset.csv")
+data_age_gender_subset <- read_csv("data_age_gender_subset.csv")
+data_amp_summary_subset <- read_csv("data_amp_summary_subset.csv")
+data_selfreport_summary_subset <- read_csv("data_selfreport_summary_subset.csv")
+
+
+nrow(data_unique_id_subset)
+nrow(data_age_gender_subset)
+nrow(data_amp_summary_subset)
+nrow(data_selfreport_summary_subset)
+
+```
+
+
+
+
+# Affect Misattribution Procedure
+
+Create an overall AMP bias score. Score each trial as having been evalauted as congruent with the prime or not. eg When trialcode == "prime_positive" & evaluative_response == 1, then record as 1, etc. AMP score is the proportion of congruent responses.
+
+```{r}
+
+#data_amp_score_congruence <- data_amp_raw 
+
+```
+
+# Combine 
+
+Combine data frames together to create one wide-format data frame where each row represents a participant.
+
+Flag all duplicates for exclusion.
+
+```{r}
+
+# data_processed_before_exclusions 
+
+```
+
+# Define master exclusion variable
+
+```{r}
+
+#data_processed <- data_processed_before_exclusions
+
+```
+
+# Write to disk
+
+```{r}
+
+# # in case this dir doesn't exist, create it
+# dir.create("../data/processed/")
+# 
+# # save data to disk in that dir
+# write_csv(data_processed, "../data/processed/data_processed.csv")
+
+```
+
+# Session info
+
+```{r}
+
+sessionInfo()
+
+```
+
+
