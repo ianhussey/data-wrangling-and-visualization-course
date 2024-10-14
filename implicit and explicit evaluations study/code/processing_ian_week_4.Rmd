@@ -51,11 +51,12 @@ data_amp_raw <- read_csv("../data/raw/data_amp_raw.csv") |>
   janitor::clean_names()
 
 ```
+
 # Duplicate unique_ids
 
 ```{r}
 
-# do we have duplicate data?
+# do we have duplicate data
 data_demographics_raw |>
   count(subject) |>
   arrange(desc(n))
@@ -134,15 +135,87 @@ dat_gender <- data_demographics_raw |>
 
 ## AMP
 
-Create an exclusion variable `exclude_amp_performance` based on AMP performance: "exclude" if more than 10% of the test block trials trials are < 100ms, or "include" if not.
+### Completeness
 
 Create an exclusion variable `exclude_amp_completeness` based on the AMP having the right number of trials.
 
 ```{r}
 
-#data_amp_performance_criteria <- data_amp_raw 
+# basic tidying
+data_amp_tidied <- data_amp_raw |>
+  rename(unique_id = subject,
+         block_type = blockcode,
+         rt = latency) |>
+  select(unique_id, block_type, rt) |>
+  filter(block_type == "test")
+
+# are there duplicates or incomplete data?
+data_amp_tidied |>
+  count(unique_id, name = "n_trials") |>
+  count(n_trials, name = "n_participants") |>
+  arrange(desc(n_participants))
+
+data_complete_amp <- data_amp_tidied |>
+  count(unique_id, name = "n_trials") |>
+  filter(n_trials == 72) 
+
+data_amp_tidied_complete <- data_amp_tidied |>
+  semi_join(data_complete_amp, by = "unique_id")
+
+# are there duplicates or incomplete data?
+# sanity check should have one row
+data_amp_tidied_complete |>
+  count(unique_id, name = "n_trials") |>
+  count(n_trials, name = "n_participants") |>
+  arrange(desc(n_participants))
+  
+# rm(data_complete_amp) # remove from environment
 
 ```
+
+## Fast trials
+
+Create an exclusion variable `exclude_amp_performance` based on AMP performance: "exclude" if more than 10% of the test block trials trials are < 100ms, or "include" if not.
+
+```{r}
+
+data_amp_performance_criteria <- data_amp_tidied_complete |>
+  mutate(fast_trial = ifelse(rt < 100, 1, 0)) |>
+  # for each participant...
+  group_by(unique_id) |>
+  # ... summarize the percent of fast trials
+  summarise(percent_fast_trials = mean(fast_trial)*100) |>
+  # flag unique_ids that have too many fast trials
+  mutate(exclude_amp_performance = ifelse(percent_fast_trials > 10, "exclude", "include"))
+
+```
+
+## Self-reports
+
+### Completeness
+
+Create an exclusion variable `exclude_amp_completeness` based on the AMP having the right number of trials.
+
+```{r}
+
+#colnames(data_selfreport_raw)
+
+# basic tidying
+data_selfreport_tidied <- data_selfreport_raw |>
+  rename(unique_id = subject,
+         item_type = trialcode) |>
+  select(unique_id, item_type, response) |>
+  filter(item_type != "instructions")
+
+```
+
+TODO - 14/10
+
+- replace all non 1-7 numbers in `response` with NA
+- count number of unique_ids with correct/wrong number of responses
+- Exclude them
+- check your exclusions worked.
+- use: mutate, group_by, summarize, _join
 
 # Score measures
 
@@ -152,7 +225,7 @@ Create a mean score for each participant of the three self-report items.
 
 ```{r}
 
-#data_selfreport_trial_level <- data_selfreport_raw 
+data_selfreport_trial_level <- data_selfreport_raw 
 
 ```
 
