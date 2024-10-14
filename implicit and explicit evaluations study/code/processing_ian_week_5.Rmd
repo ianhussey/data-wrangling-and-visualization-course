@@ -1,0 +1,282 @@
+---
+title: "Evaluations of positive and negative stimuli using the Affective Misattribution Procedure (AMP) and self-reports"
+subtitle: "Data processing"
+author: "Template: Ian Hussey; content: [Student name]"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output:
+  html_document:
+    code_folding: hide
+    highlight: haddock
+    theme: flatly
+    toc: yes
+    toc_float: yes
+---
+
+```{r, include=FALSE}
+
+knitr::opts_chunk$set(message = FALSE,
+                      warning = FALSE)
+
+```
+
+# Dependencies
+
+```{r}
+
+library(dplyr)
+library(tidyr)
+library(readr)
+library(janitor) # for clean_names()
+library(stringr)
+
+```
+
+# Get data
+
+```{r}
+
+# # demographics
+# data_demographics_raw_messy <- read_csv("../data/raw/data_demographics_raw_messy.csv", skip = 2) |>
+#   janitor::clean_names()
+
+data_demographics_raw <- read_csv("../data/raw/data_demographics_raw.csv") |>
+  janitor::clean_names()
+
+# self report measure
+data_selfreport_raw <- read_csv("../data/raw/data_selfreport_raw.csv") |>
+  janitor::clean_names()
+
+# affect attribution procedure
+data_amp_raw <- read_csv("../data/raw/data_amp_raw.csv") |>
+  janitor::clean_names()
+
+```
+
+# Duplicate unique_ids
+
+```{r}
+
+# do we have duplicate data
+data_demographics_raw |>
+  count(subject) |>
+  arrange(desc(n))
+
+```
+
+yes - n is different for some subjects
+
+```{r}
+
+dat_unique_id <- data_demographics_raw |>
+  rename(unique_id = subject) |>
+  count(unique_id) |>
+  filter(n == 2) |>
+  select(unique_id)
+  
+```
+
+# Demographics
+
+Clean the demographics data so that summaries of age and gender can be made in the analysis.
+
+```{r}
+
+# wrangle the age data out of the raw
+dat_age <- data_demographics_raw |>
+  # rename for clarity
+  rename(unique_id = subject, item = trialcode) |>
+  # select useful columns
+  select(unique_id, item, response) |>
+  # retain rows that we need
+  filter(item == "age") |>
+  rename(age = response) |>
+  # remove non-numbers or decimals from age
+  mutate(age = str_remove_all(age, "[^\\d.]"),  # retains only digits and decimal points
+         age = na_if(age, ""),
+         age = as.numeric(age)) |>
+  select(unique_id, age)
+  #select(-item) # alternative: negative selection
+
+# wrangle the gender data out of the raw
+dat_gender <- data_demographics_raw |>
+  # rename for clarity
+  rename(unique_id = subject, item = trialcode) |>
+  # select useful columns
+  select(unique_id, item, response) |>
+  # retain rows that we need
+  filter(item == "gender") |>
+  rename(gender = response) |>
+  # remove non-numbers or decimals from age
+  mutate(gender = str_to_lower(gender),
+         gender = str_remove_all(gender, "[\\d.]"),
+         gender = na_if(gender, ""), 
+         gender = case_when(gender == "woman" ~ "female",
+                            gender == "yes" ~ NA_character_,
+                            gender == "man" ~ "male",
+                            gender == "girl" ~ "female",
+                            gender == "dude" ~ "male",
+                            gender == "non binary" ~ "non-binary",
+                            TRUE ~ gender)) |>
+  select(unique_id, gender)
+
+```
+
+## Combine
+
+```{r}
+
+# dat_unique_id
+# dat_age
+# dat_gender
+
+```
+
+# Exclusions / data quality
+
+## AMP
+
+### Completeness
+
+Create an exclusion variable `exclude_amp_completeness` based on the AMP having the right number of trials.
+
+```{r}
+
+# basic tidying
+data_amp_tidied <- data_amp_raw |>
+  rename(unique_id = subject,
+         block_type = blockcode,
+         rt = latency) |>
+  select(unique_id, block_type, rt) |>
+  filter(block_type == "test")
+
+# are there duplicates or incomplete data?
+data_amp_tidied |>
+  count(unique_id, name = "n_trials") |>
+  count(n_trials, name = "n_participants") |>
+  arrange(desc(n_participants))
+
+data_complete_amp <- data_amp_tidied |>
+  count(unique_id, name = "n_trials") |>
+  filter(n_trials == 72) 
+
+data_amp_tidied_complete <- data_amp_tidied |>
+  semi_join(data_complete_amp, by = "unique_id")
+
+# are there duplicates or incomplete data?
+# sanity check should have one row
+data_amp_tidied_complete |>
+  count(unique_id, name = "n_trials") |>
+  count(n_trials, name = "n_participants") |>
+  arrange(desc(n_participants))
+  
+# rm(data_complete_amp) # remove from environment
+
+```
+
+## Fast trials
+
+Create an exclusion variable `exclude_amp_performance` based on AMP performance: "exclude" if more than 10% of the test block trials trials are < 100ms, or "include" if not.
+
+```{r}
+
+data_amp_performance_criteria <- data_amp_tidied_complete |>
+  mutate(fast_trial = ifelse(rt < 100, 1, 0)) |>
+  # for each participant...
+  group_by(unique_id) |>
+  # ... summarize the percent of fast trials
+  summarise(percent_fast_trials = mean(fast_trial)*100) |>
+  # flag unique_ids that have too many fast trials
+  mutate(exclude_amp_performance = ifelse(percent_fast_trials > 10, "exclude", "include"))
+
+```
+
+## Self-reports
+
+### Completeness
+
+Create an exclusion variable `exclude_amp_completeness` based on the AMP having the right number of trials.
+
+```{r}
+
+#colnames(data_selfreport_raw)
+
+# basic tidying
+data_selfreport_tidied <- data_selfreport_raw |>
+  rename(unique_id = subject,
+         item_type = trialcode) |>
+  select(unique_id, item_type, response) |>
+  filter(item_type != "instructions")
+
+```
+
+TODO - 14/10
+
+- replace all non 1-7 numbers in `response` with NA
+- count number of unique_ids with correct/wrong number of responses
+- Exclude them
+- check your exclusions worked.
+- use: mutate, group_by, summarize, _join
+
+# Score measures
+
+## Self-reports
+
+Create a mean score for each participant of the three self-report items.
+
+```{r}
+
+data_selfreport_trial_level <- data_selfreport_raw 
+
+```
+
+## Affect Misattribution Procedure
+
+Create an overall AMP bias score. Score each trial as having been evaluated as congruent with the prime or not. eg When trialcode == "prime_positive" & evaluative_response == 1, then record as 1, etc. AMP score is the proportion of congruent responses, using the test blocks only.
+
+```{r}
+
+#data_amp_score_congruence <- data_amp_raw 
+
+```
+
+# Combine 
+
+Combine data frames together to create one wide-format data frame where each row represents a participant.
+
+Flag all duplicates for exclusion.
+
+```{r}
+
+# data_processed_before_exclusions 
+
+```
+
+# Define master exclusion variable
+
+```{r}
+
+#data_processed <- data_processed_before_exclusions
+
+```
+
+# Write to disk
+
+```{r}
+
+# # in case this dir doesn't exist, create it
+# dir.create("../data/processed/")
+# 
+# # save data to disk in that dir
+# write_csv(data_processed, "../data/processed/data_processed.csv")
+
+```
+
+# Session info
+
+```{r}
+
+sessionInfo()
+
+```
+
+
